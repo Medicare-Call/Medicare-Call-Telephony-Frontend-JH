@@ -2,7 +2,8 @@ import { Item } from "@/components/types";
 
 export default function handleRealtimeEvent(
   ev: any,
-  setItems: React.Dispatch<React.SetStateAction<Item[]>>
+  setItems: React.Dispatch<React.SetStateAction<Item[]>>,
+  onCallQualityUpdate?: (quality: any) => void
 ) {
   // Helper function to create a new item with default fields
   function createNewItem(base: Partial<Item>): Item {
@@ -225,7 +226,47 @@ export default function handleRealtimeEvent(
       break;
     }
 
+    case "session.updated": {
+      // 세션 업데이트 이벤트 처리
+      console.log("Session updated:", ev.session);
+      break;
+    }
+
+    case "error": {
+      // 오류 이벤트 처리
+      console.error("Realtime error:", ev.error);
+      setItems((prev) => [
+        ...prev,
+        createNewItem({
+          id: `error_${Date.now()}`,
+          type: "message",
+          role: "system",
+          content: [{ type: "text", text: `오류: ${ev.error?.message || "알 수 없는 오류"}` }],
+          status: "completed",
+        }),
+      ]);
+      break;
+    }
+
+    case "connection_quality": {
+      // 연결 품질 정보 업데이트
+      if (onCallQualityUpdate && ev.quality) {
+        onCallQualityUpdate({
+          connectionQuality: ev.quality.connection || "good",
+          audioQuality: ev.quality.audio || "good",
+          latency: ev.quality.latency || 150,
+          packetsLost: ev.quality.packetsLost || 0,
+          jitter: ev.quality.jitter || 10
+        });
+      }
+      break;
+    }
+
     default:
+      // 알려지지 않은 이벤트 로그
+      if (ev.type !== "session.created") {
+        console.log("Unhandled realtime event:", ev.type, ev);
+      }
       break;
   }
 }
